@@ -18,7 +18,7 @@ ulm-web (Vue SPA) --/api--> ulm-core (FastAPI) --> PostgreSQL
 | `ulm-repository` | Guias `how-to/` y contenido `.md` | git local, sin remoto |
 | `ulm-infra` | IaC / CI-CD futuro | vacio |
 | `ulm-data` | Archivos fuente de imports (xlsx) | **sin git** (datos personales) |
-| `doc/` | Esta documentacion | **sin git** (ver T1 en pendientes) |
+| `ulm-doc` | Esta documentacion | git + GitHub |
 
 ## Stack
 
