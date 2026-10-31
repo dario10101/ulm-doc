@@ -34,7 +34,7 @@ Ultima revision: 2026-10-29. Solo lo que funciona end-to-end (backend + UI). Lo 
 
 | Funcionalidad | Gen. | Nota |
 |---|---|---|
-| Gastos con categorias por usuario (copiadas de plantilla global), metodos de pago y tags | Alta | Metodos de pago aun globales |
+| Gastos con categorias, metodos de pago y tags por usuario (categorias, metodos de pago y fuentes/subcategorias de ingreso se copian de plantillas `fn_default_*` al registrarse) | Alta | |
 | Ingresos directos e intereses mensuales por fuente/subcategoria (bolsillos) | Media | Modelo de intereses pensado en mis productos (Tyba, Lulo) |
 | Analitica de gastos, ingresos e ingresos vs gastos (neto, tasa de ahorro) | Alta | |
 | Formato de montos colombiano | Baja | `.` miles, `,` decimal; no configurable |

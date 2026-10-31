@@ -20,7 +20,7 @@ Objetivo: abrir la app a 5-10 usuarios invitados con datos aislados.
 | 2 | Front: `useAuth`, guard, 401 global, logout, Settings con `/me` | ✅ |
 | 3 | Permisos por dominio (back + front) | ✅ |
 | 4 | `/admin/users` + Settings -> System -> Users | ✅ |
-| **5** | **Onboarding**: por dominio, preguntar si crear parametrizacion base; decision en `user_domain_setup`. Resuelve D20 y F1 | ⏳ Pendiente. Decidir antes: presets en codigo vs tablas plantilla (ya existe `fn_default_expense_categories`) |
+| **5** | **Onboarding**: por dominio, preguntar si crear parametrizacion base; decision en `user_domain_setup`. Resuelve D20 y F1 | ⏳ Pendiente. Decidir antes: presets en codigo vs tablas plantilla (finanzas ya usa tablas `fn_default_*` copiadas en el registro) |
 | 6 | Deploy | ⏳ Bloqueado por D17 (Dockerfile) |
 
 ## Deploy recomendado

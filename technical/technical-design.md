@@ -41,7 +41,7 @@ ulm-web (Vue SPA) --/api--> ulm-core (FastAPI) --> PostgreSQL
 ## Reglas permanentes
 
 - **Un cambio de esquema = una migracion.** Revisar siempre el `--autogenerate` (renombres salen como drop + add, con perdida de datos).
-- **Nombres de tabla**: `<modulo>_user_<entidad>` si es de un usuario; sin `user` si es catalogo global o cuelga de otra tabla. Renombrar arrastra a mano secuencia, PK, FK e indices; `scripts/check_db_names.py` lo verifica.
+- **Nombres de tabla**: `<modulo>_user_<entidad>` si es de un usuario; `<modulo>_default_<entidad>` si es plantilla para usuarios nuevos (se copia al registrarse, sin `status`, borrar es borrar); sin `user` si es catalogo global o cuelga de otra tabla. Renombrar arrastra a mano secuencia, PK, FK e indices; `scripts/check_db_names.py` lo verifica.
 - **Postgres no indexa FKs solo**: `index=True` en las que se consultan; nunca en `primary_key`.
 - **Zona horaria**: BD en UTC, dominio en la zona del usuario, conversion solo al entrar/salir del service. Nunca `.date()` ni `isoweekday()` sobre un instante. Ver `ulm-repository/how-to/timezones.md`.
 - **Tests independientes**: si pasa en suite y falla aislado, el test esta mal.
