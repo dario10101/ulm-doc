@@ -15,6 +15,7 @@ Ultima revision: 2026-10-29. Solo lo que funciona end-to-end (backend + UI). Lo 
 | Permisos por dominio (`weight`, `meals`, `finances`, `planning`, `blog`, `english`, `ai`, `<dominio>.ai`) | Alta | |
 | Administracion de usuarios (invitar, permisos, deshabilitar) en Settings -> Users | Alta | |
 | Datos aislados por usuario | Alta | |
+| Onboarding: el usuario nuevo recibe sus parametros iniciales automaticamente al registrarse | Alta | Solo finanzas tiene plantilla; el resto arranca vacio |
 | Tema claro/oscuro por dispositivo | Alta | |
 | Parametros: catalogos con borrado hibrido (borra sin registros, archiva con registros) | Alta | |
 | Festivos (CO) propuestos por libreria + fechas especiales, administrados por el admin | Media | Pais fijo |

@@ -16,6 +16,7 @@ technical/
   technical-pending.md          # Deuda y pendientes tecnicos (D*, T*)
 plans/
   PLAN-<TEMA>.md                # Un plan por iniciativa: decisiones, fases, estado
+  done/                         # Planes terminados (historico de referencia)
 ```
 
 ## Por donde empezar
@@ -33,11 +34,12 @@ plans/
 | `ulm-repository` | Guias tecnicas y contenido `.md` |
 | `ulm-infra` | Infraestructura (pendiente) |
 
-Los links relativos a `../../ulm-core/...` en los planes funcionan si los repos se clonan como carpetas hermanas.
+Los links relativos a `../../ulm-core/...` (`../../../` desde `plans/done/`) funcionan si los repos se clonan como carpetas hermanas.
 
 ## Convenciones
 
 - Cada plan indica su estado en la linea 3 (`Estado: ...` o `Ultima actualizacion: ...`).
 - Los planes conservan el nombre `PLAN-<TEMA>.md` porque el codigo los cita por nombre: no renombrarlos.
+- Un plan terminado se mueve a `plans/done/` (mismo nombre; el codigo lo cita sin ruta). Al moverlo, ajustar sus links relativos y los que apuntan a el.
 - Un item vive en un solo lugar. Lo terminado pasa a `capabilities_done.md` y lo resuelto se borra de los pendientes.
 - Las reglas de cuando actualizar estan en el `CLAUDE.md` de la raiz del workspace.

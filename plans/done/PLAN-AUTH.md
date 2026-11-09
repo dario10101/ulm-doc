@@ -1,6 +1,6 @@
-# ULM - Plan de auth, multiusuario y deploy
+# ULM - Plan de auth y multiusuario
 
-Estado: fases 0-4 hechas y commiteadas; **siguiente: fase 5 (onboarding)**; deploy decidido, no ejecutado.
+Estado: fases 0-5 hechas. Terminado. El deploy sigue en [PLAN-DEPLOY.md](../PLAN-DEPLOY.md).
 Objetivo: abrir la app a 5-10 usuarios invitados con datos aislados.
 
 ## Decisiones (2026-10-03)
@@ -20,11 +20,4 @@ Objetivo: abrir la app a 5-10 usuarios invitados con datos aislados.
 | 2 | Front: `useAuth`, guard, 401 global, logout, Settings con `/me` | ✅ |
 | 3 | Permisos por dominio (back + front) | ✅ |
 | 4 | `/admin/users` + Settings -> System -> Users | ✅ |
-| **5** | **Onboarding**: por dominio, preguntar si crear parametrizacion base; decision en `user_domain_setup`. Resuelve D20 y F1 | ⏳ Pendiente. Decidir antes: presets en codigo vs tablas plantilla (finanzas ya usa tablas `fn_default_*` copiadas en el registro) |
-| 6 | Deploy | ⏳ Bloqueado por D17 (Dockerfile) |
-
-## Deploy recomendado
-
-Cloudflare Pages (web), Cloud Run us-east1 con Workload Identity Federation (core), Neon (Postgres), dominio en Cloudflare. `main` = prod.
-
-Orden al migrar datos reales: crear el usuario primero (recibe sus categorias) y luego correr los scripts de import (tienen guarda anti-duplicados).
+| 5 | **Onboarding**: al registrarse, el usuario recibe sus parametros iniciales sin preguntarle (copia de las plantillas `fn_default_*` en `UserAdminService.register`, misma transaccion que el alta). Los demas dominios no necesitan semilla: English y blog crean su registro al primer uso; checklist, calendario, peso y comidas los arma el usuario. Se descarto preguntar por dominio (`user_domain_setup`). Resuelve D20 y F1 | ✅ |

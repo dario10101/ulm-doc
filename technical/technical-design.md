@@ -34,7 +34,7 @@ ulm-web (Vue SPA) --/api--> ulm-core (FastAPI) --> PostgreSQL
 
 - **Transaccion**: una por request, commit solo en `get_db`. Los repositories hacen `flush()`, nunca `commit()`.
 - **Multiusuario**: todo repository recibe `*, user_id`; un recurso ajeno responde 404 (no 403). Tablas hijas: FK compuesta o validacion en service + test A/B.
-- **Auth**: Google OIDC + PKCE, sesion en cookie httpOnly (token hasheado en `user_sessions`). Routers en `PRIVATE_ROUTERS`/`PUBLIC_ROUTERS`; tests fallan si una ruta queda sin sesion o sin permiso.
+- **Auth**: Google OIDC + PKCE, sesion en cookie httpOnly (token hasheado en `user_sessions`). Routers en `PRIVATE_ROUTERS`/`PUBLIC_ROUTERS`; tests fallan si una ruta queda sin sesion o sin permiso. Decisiones en [PLAN-AUTH.md](../plans/done/PLAN-AUTH.md).
 - **Blog**: excepcion deliberada al modelo relacional: tabla generica pk/sk JSONB `blg_entities` (estilo DynamoDB). Ver [PLAN-BLOG.md](../plans/PLAN-BLOG.md) seccion 7.
 - **Consumo IA**: toda llamada paga registra en `ai_usage_events` (`AiUsageRecorder`).
 
@@ -49,6 +49,13 @@ ulm-web (Vue SPA) --/api--> ulm-core (FastAPI) --> PostgreSQL
 - **Markdown**: render en el front y sanitizado siempre (`MarkdownContent.vue`, unico `v-html`).
 - **Commits chicos y tematicos**, mensajes cortos.
 
-## Deploy (decidido, no ejecutado)
+## Deploy
 
-Cloudflare Pages (web) + Cloud Run us-east1 con WIF (core) + Neon (Postgres) + dominio en Cloudflare. `main` = prod. Detalle en [PLAN-AUTH-DEPLOY.md](../plans/PLAN-AUTH-DEPLOY.md).
+En produccion en `getulm.app`: Cloudflare Worker con static assets (web + proxy `/api` al backend, mismo origen) + Cloud Run us-east1 (core) + Neon (Postgres) + dominio en Cloudflare. `main` = prod. Arquitectura, fases y reglas de migraciones con datos en prod en [PLAN-DEPLOY.md](../plans/PLAN-DEPLOY.md).
+
+### Contenedores
+
+- **Solo `ulm-core` va en contenedor** (Cloud Run solo ejecuta imagenes). `ulm-web` son estaticos en un Worker de Cloudflare: un nginx seria un servidor extra sin ganancia. Postgres es Neon: en contenedor obligaria a manejar disco y backups a mano. Postgres en Docker solo en local.
+- **`Dockerfile` en `ulm-core`** (lo construye su CI); en `ulm-infra` va lo que cruza repos. `ulm-infra/local/` = solo desarrollo (compose: `db` + `migrate` + `api`).
+- **Migraciones fuera del arranque**: la misma imagen corre `alembic upgrade head` como paso aparte (servicio `migrate` en local, Cloud Run Job antes de cada revision en prod). En el entrypoint, dos instancias que arrancan a la vez migrarian en paralelo, y un fallo se veria como "la API no arranca" en vez de "el deploy fallo".
+- **Config solo por variables de entorno**; nunca un `.env` dentro de la imagen (`.dockerignore`). Imagen sin dependencias de dev, usuario no root, puerto de `$PORT`, logs por stdout.

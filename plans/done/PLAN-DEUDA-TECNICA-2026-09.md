@@ -1,7 +1,7 @@
 # ULM - Plan de deuda tecnica (sep 2026)
 
 Estado: **cerrado** (fases 1-6 ejecutadas al 2026-09-27). Historico de referencia: que se hizo y que trampas aparecieron.
-Lo que quedo abierto (D10, D15, D17, D19, D20) se movio a [technical-pending.md](../technical/technical-pending.md) y [capabilities_wish-list.md](../functional/capabilities_wish-list.md); las reglas permanentes a [technical-design.md](../technical/technical-design.md).
+Lo que quedo abierto (D10, D15, D17, D19, D20) se movio a [technical-pending.md](../../technical/technical-pending.md) y [capabilities_wish-list.md](../../functional/capabilities_wish-list.md); las reglas permanentes a [technical-design.md](../../technical/technical-design.md).
 
 ---
 
@@ -40,12 +40,12 @@ Verificado:
 
 La BD guarda UTC; cada usuario tiene su zona IANA en `users.timezone`; toda cuenta de calendario se hace convirtiendo primero a esa zona. La API habla hora de pared en ambos sentidos y rechaza con 422 cualquier fecha con offset. Verificado end-to-end contra Postgres, con 5 tests que fallan si se rompe la conversion.
 
-Contrato: [ulm-core/README.md](../../ulm-core/README.md#zona-horaria) · implementacion: `app/services/cld_task_sync.py` · fundamentos: [how-to/timezones.md](../../ulm-repository/how-to/timezones.md).
+Contrato: [ulm-core/README.md](../../../ulm-core/README.md#zona-horaria) · implementacion: `app/services/cld_task_sync.py` · fundamentos: [how-to/timezones.md](../../../ulm-repository/how-to/timezones.md).
 Cola abierta: **D19** (cambiar de zona).
 
 ### Fase 1 — Alembic y aislamiento de tests
 
-**D1 — Alembic.** Linea base `cf2ce11c7a8b` generada contra una BD vacia, BD real sellada con `stamp head`, `create_all()` fuera del arranque. Verificado: `alembic check` sin drift, y una BD creada desde cero produce un esquema **identico** al de produccion. Flujo de uso: [ulm-core/README.md](../../ulm-core/README.md#migraciones-de-base-de-datos) · fundamentos: [how-to/alembic.md](../../ulm-repository/how-to/alembic.md).
+**D1 — Alembic.** Linea base `cf2ce11c7a8b` generada contra una BD vacia, BD real sellada con `stamp head`, `create_all()` fuera del arranque. Verificado: `alembic check` sin drift, y una BD creada desde cero produce un esquema **identico** al de produccion. Flujo de uso: [ulm-core/README.md](../../../ulm-core/README.md#migraciones-de-base-de-datos) · fundamentos: [how-to/alembic.md](../../../ulm-repository/how-to/alembic.md).
 Cola abierta: **D18** (convencion de nombres).
 
 El diff de la linea base revelo drift real, ya corregido: tres columnas (`cl_categories.status`, `cld_tasks.duration_minutes`, `users.timezone`; nombres de entonces) tenian `DEFAULT` en la BD que los modelos no declaraban, residuo de los `ALTER TABLE` manuales. Los modelos ahora declaran ese `server_default`.
