@@ -59,3 +59,14 @@ En produccion en `getulm.app`: Cloudflare Worker con static assets (web + proxy 
 - **`Dockerfile` en `ulm-core`** (lo construye su CI); en `ulm-infra` va lo que cruza repos. `ulm-infra/local/` = solo desarrollo (compose: `db` + `migrate` + `api`).
 - **Migraciones fuera del arranque**: la misma imagen corre `alembic upgrade head` como paso aparte (servicio `migrate` en local, Cloud Run Job antes de cada revision en prod). En el entrypoint, dos instancias que arrancan a la vez migrarian en paralelo, y un fallo se veria como "la API no arranca" en vez de "el deploy fallo".
 - **Config solo por variables de entorno**; nunca un `.env` dentro de la imagen (`.dockerignore`). Imagen sin dependencias de dev, usuario no root, puerto de `$PORT`, logs por stdout.
+
+### Migraciones con datos en prod
+
+El CI de `ulm-core` migra la base de prod en cada push a `main`, antes de desplegar la API: durante un rato la API vieja corre contra la base nueva, y no hay rollback de la base.
+
+- **Compatibles con el codigo anterior (expand/contract)**: cambios destructivos (renombrar, cambiar tipo, borrar) en dos deploys: agregar y copiar -> la app usa lo nuevo -> borrar lo viejo en un deploy posterior.
+- **Columna nueva `NOT NULL` en tabla con filas**: `server_default` o backfill en la misma migracion (en local las tablas suelen estar vacias y no se nota).
+- **En prod no se hace `downgrade`**: se arregla con una migracion nueva hacia adelante (el downgrade recrea la estructura, no los datos).
+- **Migracion delicada**: probarla antes en un branch de Neon creado desde `production`; borrar el branch al terminar.
+- **Datos de prod**: se cambian por la app o por scripts con `--dry-run`, nunca a mano en un cliente SQL.
+- **Las migraciones solo siembran catalogo global**, nunca datos de un usuario (eso va en su registro).

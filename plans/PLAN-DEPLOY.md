@@ -1,6 +1,6 @@
 # ULM - Plan de deploy
 
-Estado: app en produccion en https://getulm.app; fases 1-6 hechas: **el back se despliega solo con cada push a `main`** (primer deploy automatico 2026-11-09, `339fb74`). Siguiente: fase 7 (limpieza de Artifact Registry) y 8 (backups).
+Estado: app en produccion en https://getulm.app; fases 1-6 hechas: **el back se despliega solo con cada push a `main`** (primer deploy automatico 2026-11-09, `339fb74`). Fase 7 en curso: politica de limpieza en dry run desde 2026-11-09, falta revisar y activar. Despues: fase 8 (backups).
 Objetivo: beta personal en produccion y, despues, abrirla a los 5-10 usuarios invitados ([PLAN-AUTH.md](./done/PLAN-AUTH.md)), con el deploy del back automatico al hacer push a `main`.
 
 ## Arquitectura en produccion
@@ -47,7 +47,7 @@ navegador ──► getulm.app (Cloudflare Worker ulm-web)
 | 4 | Prueba completa en prod (login, modulos, logout); CI de `ulm-web` en verde | ✅ |
 | 5 | WIF + SA de deploy (una sola vez, comandos a mano): pool y provider OIDC de GitHub con condicion de repo y rama; SA `ulm-deployer` con `artifactregistry.writer` (repo `ulm`), `run.developer` e `iam.serviceAccountUser` (solo sobre `ulm-core-runtime`); variables de GitHub `GCP_PROJECT`, `GCP_REGION`, `WIF_PROVIDER`, `DEPLOYER_SA`. Detalle abajo | ✅ |
 | 6 | Job `deploy` en `ulm-core/.github/workflows/ci.yml`: `needs` lint/tests/postgres/docker, solo `main` + `workflow_dispatch`, `concurrency` sin cancelar. Pasos: build y push con tag = SHA -> `jobs update` + `execute --wait` de `ulm-migrate` -> `run deploy --image` -> smoke test `https://getulm.app/api/v1/health`. Actualizar actions a versiones Node 24. Primer deploy con un cambio inocuo. Reemplaza a `wif-check.yml`. Detalle abajo | ✅ |
-| **7** | **Limpieza y doc:** politica de Artifact Registry (ultimas 5 imagenes), rollback ya documentado en `ulm-infra/README.md` (fase 6), reglas de migraciones en `technical-design.md` | ⏳ |
+| **7** | **Limpieza: politica de Artifact Registry que guarda solo la imagen en uso + la anterior; regla de rollback en `ulm-infra`; reglas de migraciones en `technical-design.md`. Detalle abajo** | ⏳ |
 | 8 | Backups: `pg_dump` diario de Neon a bucket privado de Cloud Storage (`us-east1`, capa gratis) con retencion; probar un restore | ⏳ |
 
 ## Fase 5 en detalle: WIF + SA de deploy
@@ -336,14 +336,92 @@ Sin rebuild. Ojo: mientras el trafico este fijado a una revision, un deploy nuev
 - [x] `wif-check.yml` borrado; README de `ulm-infra` actualizado
 - [x] Primer deploy automatico verificado (puntos 1-6 de 6.4)
 
+## Fase 7 en detalle: limpieza de Artifact Registry
+
+Objetivo: que el repo `ulm` no acumule imagenes. Cada deploy suma una de ~80 MB (comprimida); la capa gratis es 0,5 GB.
+
+Ojo con las imagenes subidas desde Docker Desktop: suben un indice + 2 manifiestos hijos (imagen y attestation), y la politica cuenta versiones, no imagenes. Las del CI son un solo manifiesto. Los builds manuales van con `--provenance=false --sbom=false` (README de `ulm-infra`).
+
+### Cuantas guardar: 2, no 1
+
+La idea es no guardar imagenes que no se usan, pero hay dos que si se usan:
+
+- **La imagen en servicio no se puede borrar.** Cloud Run no guarda copia: con `min-instances=0`, cada arranque en frio la vuelve a bajar del registry. Si se borra, la revision sigue "activa" pero la siguiente instancia no arranca y la API cae. Lo mismo el Job `ulm-migrate`.
+- **La anterior es el rollback.** Con ella, volver atras es un comando (`update-traffic`, segundos). Sin ella, hay que revertir el commit y esperar un deploy completo (~5 min) con prod rota mientras tanto.
+
+Guardar 2 (~160 MB) entra en la capa gratis: la anterior no cuesta nada. Por eso la politica es **las 2 mas recientes, borrar todo lo demas**. `keepCount: 1` tambien funciona, a cambio de perder el rollback rapido.
+
+### Mecanismo: politica de limpieza del registry
+
+Artifact Registry aplica reglas propias (*cleanup policies*) en segundo plano. Alternativa descartada: borrar desde el CI despues del deploy; exigiria darle a `ulm-deployer` permiso de borrado (`artifactregistry.repoAdmin`), y un bug en ese paso podria borrar la imagen en servicio.
+
+`ulm-infra/prod/ar-cleanup.json` (versionado):
+
+```json
+[
+  {
+    "name": "conservar-en-uso-y-anterior",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": { "packageNamePrefixes": ["ulm-core"], "keepCount": 2 }
+  },
+  {
+    "name": "borrar-el-resto",
+    "action": { "type": "Delete" },
+    "condition": { "tagState": "ANY" }
+  }
+]
+```
+
+- Una regla `Keep` gana sobre cualquier `Delete`: lo que entra en las 2 mas recientes no se borra nunca.
+- `tagState: ANY` cubre con tag (`v1`, `v2`, SHAs viejos) y sin tag.
+- La limpieza **no es inmediata**: corre en segundo plano, puede tardar hasta un dia.
+
+### 7.1 Aplicar en modo prueba
+
+```powershell
+cd ulm-infra
+gcloud artifacts repositories set-cleanup-policies ulm --location=us-east1 --policy=prod/ar-cleanup.json --dry-run
+```
+
+En *dry run* no borra nada: registra que borraria. Al dia siguiente, en *Logs Explorer*: `protoPayload.methodName="Dry run : Delete Versions"` (o similar; filtrar por `artifactregistry`). Tiene que listar `v1`, `v2` y nada de las 2 mas recientes.
+
+### 7.2 Activarla
+
+```powershell
+gcloud artifacts repositories set-cleanup-policies ulm --location=us-east1 --policy=prod/ar-cleanup.json --no-dry-run
+```
+
+### 7.3 Verificar (al dia siguiente)
+
+```powershell
+gcloud artifacts docker images list us-east1-docker.pkg.dev/unified-life-manager/ulm/ulm-core --include-tags --format="table(version.basename(),tags,createTime.date())"
+gcloud artifacts repositories describe ulm --location=us-east1 --format="value(sizeBytes)"
+```
+
+Quedan 2 versiones; la mas reciente es la de `/api/v1/health` (`version`). Y la app sigue arrancando en frio (abrir `getulm.app` despues de unos minutos sin uso).
+
+### 7.4 Regla que hay que respetar: rollback con trafico fijado
+
+La politica ordena por fecha de subida, no por "que esta en servicio". Caso peligroso: rollback a la revision anterior (trafico fijado) y despues **dos** deploys mas sin volver a `--to-latest`. La imagen fijada deja de estar entre las 2 mas recientes, se borra, y el siguiente arranque en frio falla. Regla: **despues de un rollback, el siguiente paso es arreglar y volver a `--to-latest`**, no seguir desplegando con el trafico fijado. Va escrita en el README de `ulm-infra` (seccion Rollback).
+
+Consecuencia aceptada: hacer rollback a una revision mas vieja que la anterior ya no es posible (su imagen no existe). Para eso: revertir el commit y dejar que el CI despliegue.
+
+### 7.5 Doc
+
+- `technical-design.md`: las reglas de "Reglas de migraciones con datos en prod" pasan ahi (son permanentes); en este plan queda un link.
+- Revisar que *Container Scanning API* no este activa en el proyecto (escanea cada imagen subida y se cobra aparte): `gcloud services list --enabled --filter=containerscanning`.
+
+### Terminada cuando
+
+- [x] `prod/ar-cleanup.json` en `ulm-infra`, aplicada en dry run (2026-11-09)
+- [ ] Dry run revisado en los logs y politica activada (`--no-dry-run`)
+- [ ] Al dia siguiente quedan 2 versiones de `ulm-core` y la app arranca en frio
+- [x] Regla de rollback con trafico fijado en el README de `ulm-infra`
+- [x] Reglas de migraciones en `technical-design.md`; Container Scanning verificada (apagada)
+
 ## Reglas de migraciones con datos en prod
 
-- Revisar siempre el `--autogenerate`: un renombre sale como drop + add y borra datos.
-- Columna nueva `NOT NULL` en tabla con filas: `server_default` o backfill en la misma migracion.
-- Cambios destructivos en dos deploys (expand/contract): agregar y copiar -> la app usa lo nuevo -> borrar lo viejo en un deploy posterior.
-- En prod no se hace `downgrade` para arreglar: migracion nueva hacia adelante.
-- Migracion delicada: probarla antes en un branch de Neon creado desde `production`, y borrar el branch al terminar.
-- Datos de prod se cambian por la app o por scripts con `--dry-run`, nunca a mano en DBeaver.
+Pasaron a [technical-design.md](../technical/technical-design.md) (Deploy -> Migraciones con datos en prod): son permanentes.
 
 ## Pendientes fuera de las fases
 
